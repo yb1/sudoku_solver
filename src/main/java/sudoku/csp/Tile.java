@@ -2,6 +2,7 @@ package sudoku.csp;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created by youngbinkim on 2/13/16.
@@ -16,14 +17,18 @@ public class Tile {
     private int secNo;
 
     public int getNumUNeighbours() {
-        return numUNeighbours;
+        return numUNeighbours.get();
     }
 
-    public void decrementNumUNeighbours() {
-        numUNeighbours--;
+    public int decrementNumUNeighbours() {
+        return numUNeighbours.decrementAndGet();
     }
 
-    private int numUNeighbours = 20; // number of unassigned neighbours..
+    public int incrementNumUNeighbours() {
+        return numUNeighbours.decrementAndGet();
+    }
+
+    private AtomicInteger numUNeighbours = new AtomicInteger(20); // number of unassigned neighbours..
 
     public boolean isAssigned() {
         return assigned;
@@ -83,5 +88,9 @@ public class Tile {
 
     public void setVal(int val) {
         this.val = val;
+    }
+
+    public void addDomain(int val) {
+        domain.add(val);
     }
 }

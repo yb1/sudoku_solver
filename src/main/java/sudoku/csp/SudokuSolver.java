@@ -1,9 +1,10 @@
 package sudoku.csp;
 
-import java.util.*;
-import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Created by youngbinkim on 2/13/16.
@@ -13,40 +14,14 @@ public class SudokuSolver {
 
     Logger logger = LoggerFactory.getLogger(SudokuSolver.class);
 
-    final PriorityQueue<Tile> mrv = new PriorityQueue(81, new TileComparator()); // to find most restrained value
-
-    private List<List<Tile>> board; // board representation
-
-    // this is just to make coding easier
-    private Map<Integer, List<Tile>> section = new HashMap<>();
+    private SudokuBoard board; // board representation
 
     public SudokuSolver(List<List<Tile>> board) {
-        this.board = board;
-        iterateBoard(tile -> {
-            int sectionNo = calcaluateSectionNo(tile.getRow(), tile.getCol());
-            tile.setSecNo(sectionNo);
-            if (!tile.isAssigned()) {
-                List<Tile> sec = section.getOrDefault(sectionNo, new ArrayList<>());
-                sec.add(tile);
-                section.put(sectionNo, sec);
-                mrv.add(tile);
-                logger.debug("Give sec no {} to tile.. i: {} , j:{} ", sectionNo, tile.getRow(), tile.getCol());
-            }
-        });
+        this.board = new SudokuBoard(board, this);
+        this.board.init();
     }
 
     public void run() {
-        // first remove constraints as there are values initially..
-
-        iterateBoard(tile -> {
-            if (tile.isAssigned()) {
-                int row = tile.getRow();
-                int col = tile.getCol();
-                List<Tile> neighbours = getNeighbours(row, col, calcaluateSectionNo(row, col));
-                forwardCheck(neighbours, tile.getVal());
-            }
-        });
-
         recursivelySolve();
     }
 
@@ -55,35 +30,53 @@ public class SudokuSolver {
      * @param neighbours
      * @param val
      */
-    private void forwardCheck(List<Tile> neighbours, int val) {
+    public boolean forwardCheck(final Set<Tile> neighbours, final int val) {
+        boolean status = true;
         for (Tile tile : neighbours) {
             removeDomin(tile, val);
             logger.debug("Removing domain {} of tile i: {} , j:{} ", val, tile.getRow(), tile.getCol());
+            if (!tile.isAssigned() && tile.getDomain().size() == 0) {
+                logger.debug("Forward checking detected inconsistency.. " +
+                        "domain empty for tile i : {}, j: {} .. removed domain {} "
+                        , tile.getRow(), tile.getCol(), val);
+                status = false;
+            }
         }
+        return status;
     }
 
-
     private boolean recursivelySolve() {
-        if (mrv.isEmpty())
+        if (board.getMrv().isEmpty())
             return true;
 
         Tile chosen;
         List<Tile> choices = findMostRestrained();
+        if (choices == null)
+            return true;
+
         if (choices.size() > 1) {
             chosen = findMostRestrictingVariable(choices);
         } else {
             chosen = choices.get(0);
         }
-        List<Integer> values = getValuesInOrder(); // get values following Most Constraining values Heuristic.
+        final Set<Tile> neighbours = board.getNeighbours(chosen);
+        final List<Integer> values = getValuesInOrder(chosen, neighbours); // get values following Most Constraining values Heuristic.
+
 
         // assign value
         for (int val : values) {
+            logger.debug("Assign {} to i:{}, j:{}", val, chosen.getRow(), chosen.getCol());
             // check if consistent..
-            if (checkConsistent(chosen, val)) {
+            if (checkConsistent(chosen, val, neighbours)) {
                 chosen.setAssigned();
                 chosen.setVal(val);
 
-                if (forwardCheck(chosen.getRow(), chosen.getCol(), chosen.getSecNo(), val)) {
+                // keep notes of affected neighbours to revert later
+                List<Tile> affectedNeighbours = neighbours.stream().filter(tile ->
+                    tile.getDomain().contains(val)).collect(Collectors.toList());
+
+                if (forwardCheck(neighbours, val)) {
+                    logger.debug("Forward check succeeded");
                     // recursive call
                     if (recursivelySolve()) {
                         return true;
@@ -91,24 +84,23 @@ public class SudokuSolver {
                 }
 
                 // fail.. revert
-                chosen.setAssigned(false);
+                revertAssignment(chosen, neighbours, affectedNeighbours, val);
             }
         }
+        board.enqueueTile(chosen);
         return false;
     }
 
-    private void solve () {
-        Stack<SudokuStepState> states = new Stack<>();
+    // todo: finish this part
+    private void revertAssignment(Tile chosen, Set<Tile> neighbours, List<Tile> affectedNeighbours, int val) {
+        chosen.setAssigned(false);
+        neighbours.stream().forEach(tile -> tile.incrementNumUNeighbours());
+        affectedNeighbours.stream().forEach(tile -> addDomain(tile, val));
+    }
 
-        List<Tile> choices = findMostRestrained();
-        if (choices.size() > 1) {
-            Tile chosen = findMostRestrictingVariable(choices);
-            int value = findMostRestrictingValue();
-
-            // assign value
-
-
-        }
+    private boolean checkConsistent(final Tile chosen, final int val, final Set<Tile> neighbours) {
+        // check if any of neighbour has that value already..
+        return neighbours.stream().noneMatch(tile -> tile.isAssigned() && tile.getVal() == val);
     }
 
     public Tile findMostRestrictingVariable(List<Tile> choices) {
@@ -129,6 +121,12 @@ public class SudokuSolver {
                 }
             }
         }
+
+        final Tile finalMinTile = minTile;
+        choices.stream().filter(tile1 -> !tile1.equals(finalMinTile)).forEach(tile2 -> {
+            logger.debug("Putting back tile into the queue.. i : {} , j: {} "
+                    , tile2.getRow(), tile2.getCol());
+        });
         logger.debug("Most restraining variable i: {} , j:{} , min: {} ", minTile.getRow(), minTile.getCol(),
                 min);
         return minTile;
@@ -137,79 +135,79 @@ public class SudokuSolver {
     public List<Tile> findMostRestrained() {
         List<Tile> retList = new ArrayList<>();
 
-        Tile tile = mrv.poll();
+        Tile tile =  board.getMrv().poll();
         int domainSize = tile.getDomain().size();
         logger.debug("Chosen most restrained variable i: {} , j : {}, domain size: {} ",
                 tile.getRow(), tile.getCol(), domainSize);
         retList.add(tile);
 
-        Tile peek = mrv.peek();
+        Tile peek = board.getMrv().peek();
         // check if there are ties
-        while (peek.getDomain().size() == domainSize) {
+        while (peek != null && peek.getDomain().size() == domainSize) {
             logger.debug("Value equals to most restrained variable i: {} , j : {}, domain size: {} ",
                     peek.getRow(), peek.getCol(), peek.getDomain().size());
 
-            retList.add(mrv.poll());
+            retList.add(board.getMrv().poll());
 
-            peek = mrv.peek();
+            peek = board.getMrv().peek();
         }
 
+
+        logger.debug("size : {} ", board.getTile(2, 0).getDomain().size());
+
+        /*
+        if (tile.getRow() == 1 && tile.getCol() == 4 && tile.getDomain().size() == 3) {
+            while (peek != null) {
+                logger.debug("LESSER Value equals to most restrained variable i: {} , j : {}, domain size: {} ",
+                        peek.getRow(), peek.getCol(), peek.getDomain().size());
+
+                retList.add(board.getMrv().poll());
+
+                peek = board.getMrv().peek();
+            }
+            return null;
+        }
+*/
         return retList;
     }
 
-    private List<Tile> getNeighbours(int row, int col, int i) {
-        return null;
-    }
-
-    private List<Tile> getTilesInSec(int secNo) {
-        return new ArrayList<>(section.get(secNo));
-    }
-
-    private List<Tile> getTilesInRow(int row) {
-        final List<Tile> ret = new ArrayList<>(Main.SUDOKU_COL_SIZE);
-        for (int i = 0; i < Main.SUDOKU_COL_SIZE; i++) {
-            ret.add(board.get(row).get(i));
-        }
-        return ret;
-    }
-
-    private List<Tile> getTilesInCol(int col) {
-        final List<Tile> ret = new ArrayList<>(Main.SUDOKU_ROW_SIZE);
-        for (int i = 0; i < Main.SUDOKU_ROW_SIZE; i++) {
-            ret.add(board.get(i).get(col));
-        }
-        return ret;
-    }
-
     private void removeDomin(Tile tile, int val) {
-        if (!tile.isAssigned()) {
-            mrv.remove(tile);
+        if (!tile.isAssigned() && tile.getDomain().contains(val)) {
+            board.dequeueTile(tile);
             tile.removeDomain(val);
-            mrv.add(tile);
+            board.enqueueTile(tile);
         }
-        tile.decrementNumUNeighbours();
+        int newNum = tile.decrementNumUNeighbours();
+        assert(newNum >= 0);
+        logger.debug(".. Domain size: {} New # of UNeighbours.. {} for tile i:{}, j:{}",
+                tile.getDomain().size(), newNum, tile.getRow(), tile.getCol());
     }
 
-
-    public int calcaluateSectionNo(int row, int col){
-        return (row / 3) * 3 + (col / 3);
+    private void addDomain(Tile tile, int val) {
+        board.dequeueTile(tile);
+        tile.addDomain(val);
+        board.enqueueTile(tile);
     }
 
-    public void iterateBoard(final Consumer<Tile> tileConsumer) {
-        for (int i = 0; i < Main.SUDOKU_ROW_SIZE; i++) {
-            for (int j = 0; j < Main.SUDOKU_COL_SIZE; j++) {
-                tileConsumer.accept(board.get(i).get(j));
-            }
-        }
-    }
+    public List<Integer> getValuesInOrder(Tile chosen, Set<Tile> neighbours) {
+        Map<Integer, Integer> counterMap = new HashMap<>();
+        List<Integer> domainList = neighbours.stream()
+                .filter(neighbour -> !neighbour.isAssigned())
+                .flatMap(neighbour -> neighbour.getDomain().parallelStream())
+                .filter(num -> chosen.getDomain().contains(num))
+                .collect(Collectors.toList());
+
+        domainList.stream().forEach(num ->
+                counterMap.put(num, counterMap.getOrDefault(num, 0) + 1));
 
 
-    public void printBoard(List<List<Tile>> board) {
-        for (int i = 0; i < Main.SUDOKU_ROW_SIZE; i++) {
-            for (int j = 0; j < Main.SUDOKU_COL_SIZE; j++) {
-                System.out.print(board.get(i).get(j).getVal());
-            }
-            System.out.println("");
-        }
+        counterMap.entrySet().stream().forEach(entry -> {
+            logger.debug("Value : {} # occurrence in neighbours' domain :{} " +
+                    "tile .. i:{} , j:{} " , entry.getKey(), entry.getValue(),
+                    chosen.getRow(), chosen.getCol());
+        });
+
+        return counterMap.entrySet().stream().sorted(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey).collect(Collectors.toList());
     }
 }

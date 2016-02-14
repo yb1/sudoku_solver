@@ -21,7 +21,8 @@ public class Main {
 
         for (int i = 1; i <= 1; i++) {
             long start = System.currentTimeMillis();
-            solver.processFilesInDir(String.valueOf(i));
+            //solver.processFilesInDir(String.valueOf(i));
+            solver.processFile("1/1.sd");
             long end = System.currentTimeMillis();
             System.out.println("Time taken : " + (((end - start) * 1.0) / 1000));
         }
