@@ -2,6 +2,7 @@ package sudoku.csp;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -9,26 +10,12 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 // tile of the board
 public class Tile {
-    private Set<Integer> domain = new HashSet<>();
+    private Set<Integer> domain = ConcurrentHashMap.newKeySet();
     private static int MAX = 9;
     private int val;
     private int row;
     private int col;
     private int secNo;
-
-    public int getNumUNeighbours() {
-        return numUNeighbours.get();
-    }
-
-    public int decrementNumUNeighbours() {
-        return numUNeighbours.decrementAndGet();
-    }
-
-    public int incrementNumUNeighbours() {
-        return numUNeighbours.decrementAndGet();
-    }
-
-    private AtomicInteger numUNeighbours = new AtomicInteger(20); // number of unassigned neighbours..
 
     public boolean isAssigned() {
         return assigned;

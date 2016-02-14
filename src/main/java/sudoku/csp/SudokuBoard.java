@@ -15,27 +15,27 @@ public class SudokuBoard {
 
     Logger logger = LoggerFactory.getLogger(SudokuBoard.class);
 
-    public PriorityQueue<Tile> getMrv() {
-        return mrv;
-    }
-
-    final PriorityQueue<Tile> mrv = new PriorityQueue(81, new TileComparator()); // to find most restrained value
     final SudokuSolver solver;
     // this is just to make coding easier
     private Map<Integer, List<Tile>> section = new HashMap<>();
+    private Set<Tile> unassigned = new HashSet<>();
 
     public SudokuBoard(final List<List<Tile>> board, final SudokuSolver solver) {
         this.board = board;
         this.solver = solver;
 
+        for (int i = 0; i < Main.SUDOKU_ROW_SIZE; i++) {
+            section.put(i, new ArrayList<>());
+        }
+
         iterateBoard(tile -> {
             int sectionNo = calcaluateSectionNo(tile.getRow(), tile.getCol());
             tile.setSecNo(sectionNo);
             if (!tile.isAssigned()) {
-                List<Tile> sec = section.getOrDefault(sectionNo, new ArrayList<>());
+                List<Tile> sec = section.get(sectionNo);
                 sec.add(tile);
                 section.put(sectionNo, sec);
-                mrv.add(tile);
+                unassigned.add(tile);
                 logger.debug("Give sec no {} to tile.. i: {} , j:{} ", sectionNo, tile.getRow(), tile.getCol());
             }
         });
@@ -107,13 +107,21 @@ public class SudokuBoard {
         return board.get(row).get(col);
     }
 
-    public void dequeueTile(Tile tile) {
-        //logger.debug("Dequeuing tile i:{} j:{} ", tile.getRow(), tile.getCol());
-        mrv.remove(tile);
+    public Set<Tile> getUnassigned() {
+        return unassigned;
     }
 
-    public void enqueueTile(Tile tile) {
-        //logger.debug("Enqueuing tile to queue i:{} j:{} ", tile.getRow(), tile.getCol());
-        mrv.add(tile);
+    public void addUnassigned(Tile tile) {
+        unassigned.add(tile);
+    }
+
+    public List<Tile> getMostContrainedVariable(){
+        final int min =
+                unassigned.stream().mapToInt(tile -> tile.getDomain().size()).min().getAsInt();
+        return unassigned.stream().filter(tile -> tile.getDomain().size() == min).collect(Collectors.toList());
+    }
+
+    public void removeUnassigned(Tile tile) {
+        unassigned.remove(tile);
     }
 }

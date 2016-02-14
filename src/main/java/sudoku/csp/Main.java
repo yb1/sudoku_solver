@@ -19,10 +19,9 @@ public class Main {
     public static void main (String ... args) {
         Main solver = new Main();
 
-        for (int i = 1; i <= 1; i++) {
+        for (int i = 1; i <= 71; i++) {
             long start = System.currentTimeMillis();
-            //solver.processFilesInDir(String.valueOf(i));
-            solver.processFile("1/1.sd");
+            solver.processFilesInDir(String.valueOf(i));
             long end = System.currentTimeMillis();
             System.out.println("Time taken : " + (((end - start) * 1.0) / 1000));
         }
