@@ -49,8 +49,12 @@ public class Tile {
         return val;
     }
 
+    public void setAssigned(boolean assigned) {
+        this.assigned = assigned;
+    }
+
     public void setAssigned() {
-        this.assigned = true;
+        setAssigned(true);
     }
 
     public int getRow() {

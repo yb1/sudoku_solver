@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory;
  * Created by youngbinkim on 2/13/16.
  */
 public class SudokuSolver {
+    public static int STATUS_FAILURE = -1;
+
     Logger logger = LoggerFactory.getLogger(SudokuSolver.class);
 
     final PriorityQueue<Tile> mrv = new PriorityQueue(81, new TileComparator()); // to find most restrained value
@@ -40,31 +42,76 @@ public class SudokuSolver {
             if (tile.isAssigned()) {
                 int row = tile.getRow();
                 int col = tile.getCol();
-                forwardCheck(row, col, calcaluateSectionNo(row, col), tile.getVal());
+                List<Tile> neighbours = getNeighbours(row, col, calcaluateSectionNo(row, col));
+                forwardCheck(neighbours, tile.getVal());
             }
         });
 
-        List<Tile> choices = findMostRestrained();
-        if (choices.size() > 1) {
-            Tile chosen = findMostRestraining(choices);
-        }
-        printBoard(board);
-
-        List<List<Tile>> newBoard = new ArrayList<>(board);
-        newBoard.get(0).get(0).setVal(11);
-        printBoard(newBoard);
-        printBoard(board);
-        /*
-        Tile tile;
-        while (!mrv.isEmpty()) {
-            tile = mrv.poll();
-
-            logger.debug("tile {} {} {} ", tile.getRow(), tile.getCol(), tile.getDomain().size());
-        }
-        */
+        recursivelySolve();
     }
 
-    private Tile findMostRestraining(List<Tile> choices) {
+    /**
+     * remove domains for neighbours
+     * @param neighbours
+     * @param val
+     */
+    private void forwardCheck(List<Tile> neighbours, int val) {
+        for (Tile tile : neighbours) {
+            removeDomin(tile, val);
+            logger.debug("Removing domain {} of tile i: {} , j:{} ", val, tile.getRow(), tile.getCol());
+        }
+    }
+
+
+    private boolean recursivelySolve() {
+        if (mrv.isEmpty())
+            return true;
+
+        Tile chosen;
+        List<Tile> choices = findMostRestrained();
+        if (choices.size() > 1) {
+            chosen = findMostRestrictingVariable(choices);
+        } else {
+            chosen = choices.get(0);
+        }
+        List<Integer> values = getValuesInOrder(); // get values following Most Constraining values Heuristic.
+
+        // assign value
+        for (int val : values) {
+            // check if consistent..
+            if (checkConsistent(chosen, val)) {
+                chosen.setAssigned();
+                chosen.setVal(val);
+
+                if (forwardCheck(chosen.getRow(), chosen.getCol(), chosen.getSecNo(), val)) {
+                    // recursive call
+                    if (recursivelySolve()) {
+                        return true;
+                    }
+                }
+
+                // fail.. revert
+                chosen.setAssigned(false);
+            }
+        }
+        return false;
+    }
+
+    private void solve () {
+        Stack<SudokuStepState> states = new Stack<>();
+
+        List<Tile> choices = findMostRestrained();
+        if (choices.size() > 1) {
+            Tile chosen = findMostRestrictingVariable(choices);
+            int value = findMostRestrictingValue();
+
+            // assign value
+
+
+        }
+    }
+
+    public Tile findMostRestrictingVariable(List<Tile> choices) {
         Tile tile = choices.get(0);
         Tile minTile = tile;
         int min = tile.getNumUNeighbours();
@@ -87,7 +134,7 @@ public class SudokuSolver {
         return minTile;
     }
 
-    private List<Tile> findMostRestrained() {
+    public List<Tile> findMostRestrained() {
         List<Tile> retList = new ArrayList<>();
 
         Tile tile = mrv.poll();
@@ -110,24 +157,28 @@ public class SudokuSolver {
         return retList;
     }
 
-    /**
-     * remove domains for neighbours
-     * @param row
-     * @param col
-     * @param secNo
-     */
-    private void forwardCheck(int row, int col, int secNo, int val) {
-        applyConstraintsRow(row, val, secNo);
-        applyConstraintsCol(col, val, secNo);
-        applyConstraintsSec(secNo, val);
+    private List<Tile> getNeighbours(int row, int col, int i) {
+        return null;
     }
 
-    private void applyConstraintsSec(int secNo, int val) {
-        List<Tile> list = section.get(secNo);
-        for (Tile tile : list) {
-            removeDomin(tile, val);
-            logger.debug("Removing domain {} of tile i: {} , j:{} ", val, tile.getRow(), tile.getCol());
+    private List<Tile> getTilesInSec(int secNo) {
+        return new ArrayList<>(section.get(secNo));
+    }
+
+    private List<Tile> getTilesInRow(int row) {
+        final List<Tile> ret = new ArrayList<>(Main.SUDOKU_COL_SIZE);
+        for (int i = 0; i < Main.SUDOKU_COL_SIZE; i++) {
+            ret.add(board.get(row).get(i));
         }
+        return ret;
+    }
+
+    private List<Tile> getTilesInCol(int col) {
+        final List<Tile> ret = new ArrayList<>(Main.SUDOKU_ROW_SIZE);
+        for (int i = 0; i < Main.SUDOKU_ROW_SIZE; i++) {
+            ret.add(board.get(i).get(col));
+        }
+        return ret;
     }
 
     private void removeDomin(Tile tile, int val) {
@@ -139,27 +190,6 @@ public class SudokuSolver {
         tile.decrementNumUNeighbours();
     }
 
-    private void applyConstraintsCol(int col, int val, int secNo) {
-        Tile tile;
-        for (int i = 0; i < Main.SUDOKU_ROW_SIZE; i++) {
-            tile = board.get(i).get(col);
-            if (tile.getSecNo() != secNo) {
-                removeDomin(tile, val);
-                logger.debug("Removing domain {} of tile i: {} , j:{} ", val, i, col);
-            }
-        }
-    }
-
-    private void applyConstraintsRow(int row, int val, int secNo) {
-        Tile tile;
-        for (int i = 0; i < Main.SUDOKU_COL_SIZE; i++) {
-            tile = board.get(row).get(i);
-            if (tile.getSecNo() != secNo) {
-                removeDomin(tile, val);
-                logger.debug("Removing domain {} of tile i: {} , j:{} ", val, row, i);
-            }
-        }
-    }
 
     public int calcaluateSectionNo(int row, int col){
         return (row / 3) * 3 + (col / 3);
