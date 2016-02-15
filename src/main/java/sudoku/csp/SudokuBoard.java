@@ -9,6 +9,8 @@ import java.util.stream.Collectors;
 
 /**
  * Created by youngbinkim on 2/14/16.
+ *
+ * This class represent board of sudoku, and has many useful functions to be operated on the board
  */
 public class SudokuBoard {
     private List<List<Tile>> board; // board representation
@@ -28,6 +30,7 @@ public class SudokuBoard {
             section.put(i, new ArrayList<>());
         }
 
+        // assign secition No to each of tiles..
         iterateBoard(tile -> {
             int sectionNo = calcaluateSectionNo(tile.getRow(), tile.getCol());
             tile.setSecNo(sectionNo);
@@ -65,11 +68,12 @@ public class SudokuBoard {
         return (row / 3) * 3 + (col / 3);
     }
 
-
+    // get neighbours
     private Set<Tile> getTilesInSec(int secNo) {
         return new HashSet<>(section.get(secNo));
     }
 
+    // get neighbours
     private Set<Tile> getTilesInRow(int row) {
         final Set<Tile> ret = new HashSet<>(Main.SUDOKU_COL_SIZE);
         for (int i = 0; i < Main.SUDOKU_COL_SIZE; i++) {
@@ -77,7 +81,7 @@ public class SudokuBoard {
         }
         return ret;
     }
-
+    // get neighbours
     private Set<Tile> getTilesInCol(int col) {
         final Set<Tile> ret = new HashSet<>(Main.SUDOKU_ROW_SIZE);
         for (int i = 0; i < Main.SUDOKU_ROW_SIZE; i++) {

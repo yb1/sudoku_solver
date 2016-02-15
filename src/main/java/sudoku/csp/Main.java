@@ -12,6 +12,9 @@ import java.util.List;
 
 /**
  * Created by youngbinkim on 2/13/16.
+ *
+ * Main class of this project..
+ * finds the solution for sudoku and measure how many steps were used.
  */
 public class Main {
     Logger logger = LoggerFactory.getLogger(Main.class);
@@ -20,6 +23,7 @@ public class Main {
         Main solver = new Main();
         List<Double> ans = new ArrayList<>();
 
+        // read and process all sudoku files..
         for (int i = 1; i <= 71; i++) {
             long start = System.currentTimeMillis();
             ans.add(solver.processFilesInDir(String.valueOf(i)));

@@ -13,6 +13,11 @@ import java.util.stream.Collectors;
 
 /**
  * Created by youngbinkim on 2/13/16.
+ *
+ * This is the class with main algorithm..
+ *
+ * Using fast tracking
+ * Using most constrained variable, least restring value heuristic for selections..
  */
 public class SudokuSolver {
     public static int STATUS_FAILURE = -1;
@@ -40,6 +45,11 @@ public class SudokuSolver {
 
     private AtomicInteger numAssignment = new AtomicInteger(0);
 
+
+    /**
+     * Main function to solve the sudoku recursively..
+     * @return
+     */
     private boolean recursivelySolve() {
         if (board.getUnassigned().isEmpty())
             return true;
@@ -81,9 +91,10 @@ public class SudokuSolver {
                     !tile.isAssigned() && tile.getDomain().contains(val)).collect(Collectors.toSet());
 
 
+                // forward check
                 if (forwardCheck(affectedNeighbours, val)) {
                     logger.debug("Forward check succeeded");
-                    // recursive call
+                    // recursive call (next variable)
                     if (recursivelySolve()) {
                         return true;
                     }
@@ -147,6 +158,11 @@ public class SudokuSolver {
         });
     }
 
+    /**
+     * Most Restricting Variable heuristic
+     * @param choices
+     * @return
+     */
     public Tile findMostRestrictingVariable(List<Tile> choices) {
         return choices.stream().min(((o1, o2) -> {
             int numU1 = (int) board.getNeighbours(o1).stream().filter(tile -> !tile.isAssigned()).count();
@@ -162,6 +178,10 @@ public class SudokuSolver {
         })).get();
     }
 
+    /**
+     * Most Constrained Variable heuristic
+     * @return
+     */
     public List<Tile> findMostRestricted() {
         List<Tile> retList = board.getMostContrainedVariable();
 
@@ -187,6 +207,12 @@ public class SudokuSolver {
         tile.addDomain(val);
     }
 
+    /**
+     * this is to get values following Least Restricting Value heuristic
+     * @param chosen
+     * @param neighbours
+     * @return
+     */
     public List<Integer> getValuesInOrder(Tile chosen, Set<Tile> neighbours) {
         final Map<Integer, Integer> counterMap = new HashMap<>();
 
