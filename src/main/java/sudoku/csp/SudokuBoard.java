@@ -93,6 +93,7 @@ public class SudokuBoard {
             }
             System.out.println("");
         }
+        System.out.println("");
     }
 
     public Set<Tile> getNeighbours(Tile chosen) {
@@ -101,10 +102,6 @@ public class SudokuBoard {
         neighbours.addAll(getTilesInCol(chosen.getCol()));
         neighbours.remove(chosen);
         return neighbours;
-    }
-
-    public Tile getTile (int row, int col) {
-        return board.get(row).get(col);
     }
 
     public Set<Tile> getUnassigned() {
@@ -123,5 +120,59 @@ public class SudokuBoard {
 
     public void removeUnassigned(Tile tile) {
         unassigned.remove(tile);
+    }
+
+    public void verify() {
+        for (int i = 0; i < Main.SUDOKU_ROW_SIZE; i++) {
+            for (int j = 0; j < Main.SUDOKU_COL_SIZE; j++) {
+                Tile tile = board.get(i).get(j);
+                if (!tile.isAssigned() || tile.getVal() == 0 ) {
+                    throw new IllegalStateException("Tile " + tile.isAssigned() + " " + tile.getVal());
+                }
+            }
+        }
+        verifyRow();
+        verifyCol();
+        verifySec();
+    }
+
+    private void verifySec() {
+
+        for (int i = 0; i < 9; i++) {
+            final Set<Integer> seen = new HashSet<>();
+            final int finalI = i;
+            section.get(i).stream().forEach(tile1 -> {
+                if (seen.contains(tile1.getVal()))
+                    throw new IllegalStateException("INCONSISTENCY .. while checking section " + finalI);
+                seen.add(tile1.getVal());
+            });
+        }
+    }
+
+
+    private void verifyRow() {
+        for (int i = 0; i < Main.SUDOKU_ROW_SIZE; i++) {
+            final Set<Integer> seen = new HashSet<>();
+            final int finalI = i;
+            board.get(i).stream().forEach(tile -> {
+                if (seen.contains(tile.getVal()))
+                    throw new IllegalStateException("INCONSISTENCY .. while checking row " + finalI);
+                seen.add(tile.getVal());
+            });
+        }
+    }
+
+
+    private void verifyCol() {
+        Set<Integer> seen;
+        for (int i = 0; i < Main.SUDOKU_COL_SIZE; i++) {
+            seen = new HashSet<>();
+            for (int j = 0; j < Main.SUDOKU_ROW_SIZE; j++) {
+                int val = board.get(j).get(i).getVal();
+                if (seen.contains(val))
+                    throw new IllegalStateException("INCONSISTENCY .. while checking col " + i);
+                seen.add(val);
+            }
+        }
     }
 }

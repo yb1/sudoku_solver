@@ -18,16 +18,19 @@ public class Main {
 
     public static void main (String ... args) {
         Main solver = new Main();
+        List<Double> ans = new ArrayList<>();
 
         for (int i = 1; i <= 71; i++) {
             long start = System.currentTimeMillis();
-            solver.processFilesInDir(String.valueOf(i));
+            ans.add(solver.processFilesInDir(String.valueOf(i)));
             long end = System.currentTimeMillis();
             System.out.println("Time taken : " + (((end - start) * 1.0) / 1000));
         }
+
+        System.out.println(ans.toString());
     }
 
-    public void processFilesInDir(final String dirName) {
+    public double processFilesInDir(final String dirName) {
         File folder = new File(getClass().getClassLoader().getResource(dirName).getFile());
         double sum = 0;
         for (final File fileEntry : folder.listFiles()) {
@@ -37,15 +40,15 @@ public class Main {
                 sum += processFile(dirName + "/" + fileEntry.getName());
             }
         }
-        System.out.println("Total average for dir : " + dirName + ": " + sum / folder.listFiles().length);
+        double average = (sum / folder.listFiles().length);
+        System.out.println("Average for dir : " + dirName + ": " + average);
+        return average;
     }
 
-    public int processFile(final String fileName) {
+    public double processFile(final String fileName) {
         List<List<Tile>> board = initialize(fileName);
         SudokuSolver solver = new SudokuSolver(board);
-        solver.run();
-        System.out.println("");
-        return 0;
+        return solver.run();
     }
 
     public static int SUDOKU_ROW_SIZE = 9;
@@ -89,6 +92,4 @@ public class Main {
         }
         return board;
     }
-
-
 }

@@ -2,15 +2,13 @@ package sudoku.csp;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created by youngbinkim on 2/13/16.
  */
 // tile of the board
 public class Tile {
-    private Set<Integer> domain = ConcurrentHashMap.newKeySet();
+    private Set<Integer> domain = new HashSet<>();
     private static int MAX = 9;
     private int val;
     private int row;

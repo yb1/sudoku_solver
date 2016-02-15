@@ -3,7 +3,10 @@ package sudoku.csp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -23,14 +26,16 @@ public class SudokuSolver {
         this.board.init();
     }
 
-    public void run() {
+    public double run() {
         logger.debug("Run SudokuSolver");
         if (!recursivelySolve()){
             logger.error("No solution found..");
         }
-        board.printBoard();
-    }
+        //board.printBoard();
 
+        //board.verify();
+        return numAssignment.get();
+    }
 
 
     private AtomicInteger numAssignment = new AtomicInteger(0);
@@ -46,6 +51,7 @@ public class SudokuSolver {
 
         if (choices.size() > 1) {
             chosen = findMostRestrictingVariable(choices);
+            logger.debug("Chosen.. i:{} j:{}", chosen.getRow(), chosen.getCol());
         } else {
             chosen = choices.get(0);
         }
@@ -57,8 +63,9 @@ public class SudokuSolver {
         // assign value
         for (int val : values) {
 
-            if ((numSteps = numAssignment.incrementAndGet()) > 10000)
-                return true;
+            if ((numSteps = numAssignment.incrementAndGet()) > 10000) {
+                return true; // this is to avoid taking too much time ..
+            }
 
             logger.debug("Now has {} steps ", numSteps);
             logger.debug("Assign {} to i:{}, j:{}", val, chosen.getRow(), chosen.getCol());
@@ -105,13 +112,7 @@ public class SudokuSolver {
         neighbours.stream().filter(tile -> !tile.isAssigned() && tile.getDomain().contains(val)).forEach(tile -> {
             removeDomain(tile, val);
             logger.debug("Removing domain {} of tile i: {} , j:{} ", val, tile.getRow(), tile.getCol());
-            if (tile.getRow() == 8 && tile.getCol() == 7 ) {
-                String domainStr= tile.getDomain().stream().map(String::valueOf).collect(Collectors.joining(", "));
-                logger.debug("@@@@@ {} ", domainStr);
-            } else if (tile.getRow() == 8 && tile.getCol() == 3 ) {
-                String domainStr= tile.getDomain().stream().map(String::valueOf).collect(Collectors.joining(", "));
-                logger.debug("##### {} ", domainStr);
-            }
+
             if (tile.getDomain().size() == 0) {
                 logger.debug("Forward checking detected inconsistency.. " +
                                 "domain empty for tile i : {}, j: {} .. removed domain {} "
@@ -132,26 +133,18 @@ public class SudokuSolver {
         affectedNeighbours.stream().forEach(tile -> {
             logger.debug("Add {} val back into the tile i:{}, j:{}", val, tile.getRow(), tile.getCol() );
             addDomain(tile, val);
-            if (tile.getRow() == 8 && tile.getCol() == 7 ) {
-                String domainStr= tile.getDomain().stream().map(String::valueOf).collect(Collectors.joining(", "));
-                logger.debug("@@@@@ {} ", domainStr);
-            } else if (tile.getRow() == 8 && tile.getCol() == 3 ) {
-                String domainStr= tile.getDomain().stream().map(String::valueOf).collect(Collectors.joining(", "));
-                logger.debug("##### {} ", domainStr);
-            }
         });
     }
 
     private boolean checkConsistent(final Tile chosen, final int val, final Set<Tile> neighbours) {
         // check if any of neighbour has that value already..
-        return true;
-        /*
+
         return neighbours.stream().noneMatch(tile -> {
             if (tile.isAssigned() && tile.getVal() == val) {
                 logger.error(" MATCH !! i:{} j:{} {}", tile.getRow(), tile.getCol(), val);
             }
             return tile.isAssigned() && tile.getVal() == val;
-        });*/
+        });
     }
 
     public Tile findMostRestrictingVariable(List<Tile> choices) {
@@ -163,38 +156,10 @@ public class SudokuSolver {
             if (res != 0)
                 return res;
             else if (o1.getRow() != o2.getRow())
-                return Integer.compare(o1.getRow(), o2.getRow());
+                return Integer.compare(o2.getRow(), o1.getRow());
             else
-                return Integer.compare(o1.getCol(), o2.getCol());
+                return Integer.compare(o2.getCol(), o1.getCol());
         })).get();
-        /*
-        Tile tile = choices.get(0);
-        Tile minTile = tile;
-        int min = tile.getNumUNeighbours();
-
-        for (int i = 0; i < choices.size(); i++) {
-            tile = choices.get(i);
-
-            if (min > tile.getNumUNeighbours()) {
-                min = tile.getNumUNeighbours();
-                minTile = tile;
-            } else if (min == tile.getNumUNeighbours()) {
-                if (tile.getRow() < minTile.getRow() ||
-                        (tile.getRow() == minTile.getRow() && tile.getCol() < minTile.getCol())) {
-                    minTile = tile;
-                }
-            }
-        }
-
-        final Tile finalMinTile = minTile;
-        choices.stream().filter(tile1 -> !tile1.equals(finalMinTile)).forEach(tile2 -> {
-            logger.debug("Putting back tile into the queue.. i : {} , j: {} "
-                    , tile2.getRow(), tile2.getCol());
-        });
-        logger.debug("Most restraining variable i: {} , j:{} , min: {} ", minTile.getRow(), minTile.getCol(),
-                min);
-                */
-        //return minTile;
     }
 
     public List<Tile> findMostRestricted() {
@@ -205,41 +170,6 @@ public class SudokuSolver {
                     tile.getRow(), tile.getCol(), tile.getDomain().size());
         });
 
-
-        /*
-        Tile tile =  board.getMrv().poll();
-        int domainSize = tile.getDomain().size();
-        logger.debug("Chosen most restrained variable i: {} , j : {}, domain size: {} ",
-                tile.getRow(), tile.getCol(), domainSize);
-        retList.add(tile);
-
-        Tile peek = board.getMrv().peek();
-        // check if there are ties
-        while (peek != null && peek.getDomain().size() == domainSize) {
-            logger.debug("Value equals to most restrained variable i: {} , j : {}, domain size: {} ",
-                    peek.getRow(), peek.getCol(), peek.getDomain().size());
-
-            retList.add(board.getMrv().poll());
-
-            peek = board.getMrv().peek();
-        }
-*/
-
-        //logger.debug("size : {} ", board.getTile(2, 0).getDomain().size());
-
-        /*
-        if (tile.getRow() == 1 && tile.getCol() == 4 && tile.getDomain().size() == 3) {
-            while (peek != null) {
-                logger.debug("LESSER Value equals to most restrained variable i: {} , j : {}, domain size: {} ",
-                        peek.getRow(), peek.getCol(), peek.getDomain().size());
-
-                retList.add(board.getMrv().poll());
-
-                peek = board.getMrv().peek();
-            }
-            return null;
-        }
-*/
         return retList;
     }
 
@@ -249,8 +179,6 @@ public class SudokuSolver {
         if (!tile.isAssigned() && tile.getDomain().contains(val)) {
             tile.removeDomain(val);
         }
-        //int newNum = tile.decrementNumUNeighbours();
-        //assert(newNum >= 0);
         logger.debug(".. Domain size: {} for tile i:{}, j:{}",
                 tile.getDomain().size(), tile.getRow(), tile.getCol());
     }
